@@ -8,6 +8,7 @@ class ElementSelector extends HTMLElement {
   
   private dialogSelectedElements: string[] = [];
   
+  // TODO: add infinite scroll feature (use intersection observer)
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
@@ -524,4 +525,6 @@ class ElementSelector extends HTMLElement {
   }
 }
 
+
+//TODO: add prebuild step to build (remove dist folder)
 customElements.define('element-selector', ElementSelector);
