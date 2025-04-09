@@ -30,210 +30,11 @@ class ElementSelector extends HTMLElement {
       return;
     }
     
-    // TODO: use appendChild and  const style = document.createElement("style");
-    this.shadowRoot.innerHTML = `
+    const wrapper = document.createElement("div");
+
+    wrapper.innerHTML = `
       <style>
-        :host {
-          display: block;
-          font-family: Roboto, sans-serif;
-          color: #333;
-        }
-        
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-          border-radius: 8px;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          background-color: #fff;
-        }
-        
-        h2 {
-          margin-top: 0;
-          color: #2c3e50;
-        }
-        
-        .selected-items {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-          margin-bottom: 20px;
-          min-height: 40px;
-        }
-        
-        .selected-item {
-          background-color: #e1f5fe;
-          border-radius: 4px;
-          padding: 8px 12px;
-          display: flex;
-          align-items: center;
-          font-size: 14px;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        }
-        
-        .selected-item button {
-          margin-left: 8px;
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: #f44336;
-          font-weight: bold;
-          padding: 0 4px;
-          font-size: 16px;
-        }
-        
-        .selected-item button:hover {
-          color: #d32f2f;
-        }
-        
-        button.change-button {
-          background-color: #2196f3;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          padding: 10px 16px;
-          cursor: pointer;
-          font-size: 14px;
-          transition: background-color 0.2s;
-        }
-        
-        button.change-button:hover {
-          background-color: #1976d2;
-        }
-        
-        dialog {
-          padding: 0;
-          border: none;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-          border-radius: 8px;
-          width: 500px;
-          max-width: 90vw;
-        }
-        
-        dialog::backdrop {
-          background-color: rgba(0, 0, 0, 0.5);
-        }
-        
-        .dialog-container {
-          padding: 20px;
-        }
-        
-        .dialog-header {
-          margin: 0 0 20px 0;
-          padding-bottom: 10px;
-          border-bottom: 1px solid #eee;
-        }
-        
-        .search-filter {
-          display: flex;
-          gap: 10px;
-          margin-bottom: 15px;
-        }
-        
-        .search-filter input {
-          flex: 1;
-          padding: 8px 12px;
-          border: 1px solid #ccc;
-          border-radius: 4px;
-          font-size: 14px;
-        }
-        
-        .search-filter select {
-          padding: 8px 12px;
-          border: 1px solid #ccc;
-          border-radius: 4px;
-          font-size: 14px;
-        }
-        
-        .elements-list {
-          height: 300px;
-          overflow-y: auto;
-          border: 1px solid #eee;
-          border-radius: 4px;
-          padding: 10px;
-          margin-bottom: 15px;
-        }
-        
-        .element-item {
-          padding: 8px;
-          display: flex;
-          align-items: center;
-        }
-        
-        .element-item:hover {
-          background-color: #f5f5f5;
-        }
-        
-        .element-item input {
-          margin-right: 10px;
-        }
-        
-        .element-item label {
-          cursor: pointer;
-          flex: 1;
-        }
-        
-        .dialog-selected {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-          margin-bottom: 20px;
-          min-height: 30px;
-          padding: 10px;
-          background-color: #f9f9f9;
-          border-radius: 4px;
-        }
-        
-        .dialog-footer {
-          display: flex;
-          justify-content: flex-end;
-          gap: 10px;
-        }
-        
-        .dialog-footer button {
-          padding: 10px 16px;
-          border: none;
-          border-radius: 4px;
-          font-size: 14px;
-          cursor: pointer;
-        }
-        
-        button.save-button {
-          background-color: #4caf50;
-          color: white;
-        }
-        
-        button.save-button:hover {
-          background-color: #388e3c;
-        }
-        
-        button.cancel-button {
-          background-color: #f5f5f5;
-          color: #333;
-        }
-        
-        button.cancel-button:hover {
-          background-color: #e0e0e0;
-        }
-        
-        /* Custom scrollbar */
-        .elements-list::-webkit-scrollbar {
-          width: 6px;
-        }
-        
-        .elements-list::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 3px;
-        }
-        
-        .elements-list::-webkit-scrollbar-thumb {
-          background: #c1c1c1;
-          border-radius: 3px;
-        }
-        
-        .elements-list::-webkit-scrollbar-thumb:hover {
-          background: #a1a1a1;
-        }
+        ${this.getStyles()}
       </style>
       
       <div class="container">
@@ -275,6 +76,9 @@ class ElementSelector extends HTMLElement {
       </dialog>
     `;
     
+    this.shadowRoot.appendChild(wrapper);
+
+    // TODO: consider using getElementById
     this.dialog = this.shadowRoot.querySelector('dialog');
   }
   
@@ -492,6 +296,212 @@ class ElementSelector extends HTMLElement {
     if (elementsListContainer) {
       elementsListContainer.innerHTML = this.renderElementsList();
     }
+  }
+
+  private getStyles(): string {
+    return `
+    :host {
+      display: block;
+      font-family: Roboto, sans-serif;
+      color: #333;
+    }
+    
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      background-color: #fff;
+    }
+    
+    h2 {
+      margin-top: 0;
+      color: #2c3e50;
+    }
+    
+    .selected-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+      min-height: 40px;
+    }
+    
+    .selected-item {
+      background-color: #e1f5fe;
+      border-radius: 4px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    
+    .selected-item button {
+      margin-left: 8px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #f44336;
+      font-weight: bold;
+      padding: 0 4px;
+      font-size: 16px;
+    }
+    
+    .selected-item button:hover {
+      color: #d32f2f;
+    }
+    
+    button.change-button {
+      background-color: #2196f3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    
+    button.change-button:hover {
+      background-color: #1976d2;
+    }
+    
+    dialog {
+      padding: 0;
+      border: none;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      border-radius: 8px;
+      width: 500px;
+      max-width: 90vw;
+    }
+    
+    dialog::backdrop {
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+    
+    .dialog-container {
+      padding: 20px;
+    }
+    
+    .dialog-header {
+      margin: 0 0 20px 0;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .search-filter {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .search-filter input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .search-filter select {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .elements-list {
+      height: 300px;
+      overflow-y: auto;
+      border: 1px solid #eee;
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .element-item {
+      padding: 8px;
+      display: flex;
+      align-items: center;
+    }
+    
+    .element-item:hover {
+      background-color: #f5f5f5;
+    }
+    
+    .element-item input {
+      margin-right: 10px;
+    }
+    
+    .element-item label {
+      cursor: pointer;
+      flex: 1;
+    }
+    
+    .dialog-selected {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+      min-height: 30px;
+      padding: 10px;
+      background-color: #f9f9f9;
+      border-radius: 4px;
+    }
+    
+    .dialog-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    
+    .dialog-footer button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    
+    button.save-button {
+      background-color: #4caf50;
+      color: white;
+    }
+    
+    button.save-button:hover {
+      background-color: #388e3c;
+    }
+    
+    button.cancel-button {
+      background-color: #f5f5f5;
+      color: #333;
+    }
+    
+    button.cancel-button:hover {
+      background-color: #e0e0e0;
+    }
+    
+    /* Custom scrollbar */
+    .elements-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .elements-list::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+    
+    .elements-list::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 3px;
+    }
+    
+    .elements-list::-webkit-scrollbar-thumb:hover {
+      background: #a1a1a1;
+    }
+    `;
   }
 }
 
