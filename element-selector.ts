@@ -78,7 +78,7 @@ class ElementSelector extends HTMLElement {
     
     this.shadowRoot.appendChild(wrapper);
 
-    // TODO: consider using getElementById
+    // getElementById would be faster but it's not safe to use for custom elements
     this.dialog = this.shadowRoot.querySelector('dialog');
   }
   
@@ -108,8 +108,9 @@ class ElementSelector extends HTMLElement {
     `).join('');
   }
   
+  // TODO: change update function name and render function name (getHTMLForElementsList)
   private renderElementsList(): string {
-    // Apply filters
+    const isLimitReached = this.dialogSelectedElements.length >= this.selectedLimit;
     const filteredElements = this.getFilteredElements();
     
     if (filteredElements.length === 0) {
@@ -118,7 +119,7 @@ class ElementSelector extends HTMLElement {
     
     return filteredElements.map(element => {
       const isSelected = this.dialogSelectedElements.includes(element);
-      const isDisabled = this.dialogSelectedElements.length >= this.selectedLimit && !isSelected;
+      const isDisabled = isLimitReached && !isSelected;
       
       return `
         <div class="element-item">
@@ -130,13 +131,15 @@ class ElementSelector extends HTMLElement {
   }
   
   private getFilteredElements(): string[] {
+    // TODO: devide allElements into chunks and filter each chunk separately (accordig to filters)
     return this.allElements.filter(element => {
-      // Apply search filter
+
+      //TODO: use regex to improve performance
       const matchesSearch = this.searchTerm === '' || 
         element.toLowerCase().includes(this.searchTerm.toLowerCase());
       
-      // Apply number filter
       let matchesNumberFilter = true;
+      // TODO: extract regex to improve performance
       const match = element.match(/Element (\d+)/);
       if (match) {
         const num = parseInt(match[1], 10);
@@ -157,14 +160,18 @@ class ElementSelector extends HTMLElement {
     });
   }
   
+  // TODO: use observer pattern to improve performance
+  // TODO: use event delegation and pattern matching
   private setupEventListeners() {
     if (!this.shadowRoot) return;
-    
-    // Change button click
+
+    // toggle?
     const changeButton = this.shadowRoot.querySelector('.change-button');
     changeButton?.addEventListener('click', () => this.openDialog());
     
     // Remove buttons in main view
+    // TODO: handle all pointer events including enter press
+    // TODO: check tabindexes and aria attributes
     this.shadowRoot.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       if (target.classList.contains('remove-button')) {
@@ -192,6 +199,7 @@ class ElementSelector extends HTMLElement {
         this.updateElementsList();
       });
       
+      //TODO: use one change listener and descriminate it by type
       // Number filter
       const numberFilter = this.dialog.querySelector('.number-filter') as HTMLSelectElement;
       numberFilter?.addEventListener('change', (e) => {
@@ -212,6 +220,9 @@ class ElementSelector extends HTMLElement {
         }
       });
       
+      // TODO: check if we need to uncheck checkboxes in order we check it during its rendering
+      // TODO: consider using desposible pattern and dont forget to remove event listeners
+      // TODO: check rerender sicle machanism (trigger rerender manualy?)
       // Remove buttons in dialog
       this.dialog.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
@@ -234,6 +245,7 @@ class ElementSelector extends HTMLElement {
     // Initialize dialog selection with current selection
     this.dialogSelectedElements = [...this.selectedElements];
     
+    // TODO: set default values setting
     // Reset filters
     this.searchTerm = '';
     this.numberFilter = 'all';
@@ -266,8 +278,14 @@ class ElementSelector extends HTMLElement {
     this.render();
   }
   
+  // TODO: add linter
+  // TODO handle extra item selection (change already selected item with new one)???
   private addToDialogSelection(element: string) {
-    if (this.dialogSelectedElements.length < this.selectedLimit && !this.dialogSelectedElements.includes(element)) {
+    const isLimitReached = this.dialogSelectedElements.length >= this.selectedLimit;
+    // TODO: consider using set instead of array
+    const isSelected = this.dialogSelectedElements.includes(element);
+
+    if (!isLimitReached && !isSelected) {
       this.dialogSelectedElements.push(element);
       this.updateDialogContent();
     }
@@ -289,6 +307,7 @@ class ElementSelector extends HTMLElement {
     this.updateElementsList();
   }
   
+  // rerender elements list???
   private updateElementsList() {
     if (!this.dialog) return;
     
