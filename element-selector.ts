@@ -6,7 +6,7 @@ const enum NumberFilter {
 }
 
 class ElementSelector extends HTMLElement {
-  private selectedElements: string[] = [];
+  private selectedElements = new Set<string>();
   private allElements: string[] = [];
   private filteredElements: string[] = [];
   private dialog: HTMLDialogElement | null = null;
@@ -15,7 +15,7 @@ class ElementSelector extends HTMLElement {
   private searchTerm: string = '';
   private numberFilter: NumberFilter = NumberFilter.All;
   
-  private dialogSelectedElements: string[] = [];
+  private dialogSelectedElements = new Set<string>();
   
   // TODO: add infinite scroll feature (use intersection observer)
   constructor() {
@@ -56,7 +56,7 @@ class ElementSelector extends HTMLElement {
         <div class="selected-items">
           ${this.getSelectedItems()}
         </div>
-        <button class="change-button">Change my choice</button>
+        <button data-elementType="change-button" class="change-button">Change my choice</button>
       </div>
       
       <dialog>
@@ -64,8 +64,8 @@ class ElementSelector extends HTMLElement {
           <h2 class="dialog-header">Select Elements</h2>
           
           <div class="search-filter">
-            <input type="text" placeholder="Search elements..." class="search-input">
-            <select class="number-filter">
+            <input type="text" data-elementType="search-input" placeholder="Search elements..." class="search-input">
+            <select data-elementType="number-filter" class="number-filter">
               <option value="all">All elements</option>
               <option value="gt10">Number > 10</option>
               <option value="gt50">Number > 50</option>
@@ -83,8 +83,8 @@ class ElementSelector extends HTMLElement {
           </div>
           
           <div class="dialog-footer">
-            <button class="cancel-button">Cancel</button>
-            <button class="save-button">Save</button>
+            <button data-elementType="cancel-button" class="cancel-button">Cancel</button>
+            <button data-elementType="save-button" class="save-button">Save</button>
           </div>
         </div>
       </dialog>
@@ -97,48 +97,47 @@ class ElementSelector extends HTMLElement {
   }
   
   private getSelectedItems(): string {
-    if (this.selectedElements.length === 0) {
+    if (this.selectedElements.size === 0) {
       return '<em>No elements selected</em>';
     }
     
-    return this.selectedElements.map(element => `
+    return Array.from(this.selectedElements).map(element => `
       <div class="selected-item">
         ${element}
-        <button class="remove-button" data-element="${element}">✕</button>
+        <button data-elementType="remove-button" class="remove-button" data-element="${element}">✕</button>
       </div>
     `).join('');
   }
   
   private getDialogSelectedItems(): string {
-    if (this.dialogSelectedElements.length === 0) {
+    if (this.dialogSelectedElements.size === 0) {
       return '<em>No elements selected</em>';
     }
     
-    return this.dialogSelectedElements.map(element => `
+    return Array.from(this.dialogSelectedElements).map(element => `
       <div class="selected-item">
         ${element}
-        <button class="dialog-remove-button" data-element="${element}">✕</button>
+        <button data-elementType="dialog-remove-button" class="dialog-remove-button" data-element="${element}">✕</button>
       </div>
     `).join('');
   }
 
   private getElementsList(): string {
-    const isLimitReached = this.dialogSelectedElements.length >= this.selectedLimit;
+    const isLimitReached = this.dialogSelectedElements.size >= this.selectedLimit;
     
     if (this.filteredElements.length === 0) {
       return '<p>No elements match your search criteria.</p>';
     }
     
     return this.filteredElements.map(element => {
-      // TODO: consider use set instead of array
-      const isSelected = this.dialogSelectedElements.includes(element);
+      const isSelected = this.dialogSelectedElements.has(element);
       const isDisabled = isLimitReached && !isSelected;
       
       return `
         <div class="element-item">
           <label>
             ${element}
-            <input type="checkbox" data-element="${element}" ${isSelected ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}>
+            <input type="checkbox" data-elementType="checkbox" data-element="${element}" ${isSelected ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}>
           </label>
         </div>
       `;
@@ -173,85 +172,78 @@ class ElementSelector extends HTMLElement {
 
     this.filteredElements = elementsList;
   }
-  
-  // TODO: use observer pattern to improve performance
-  // TODO: use event delegation and pattern matching
+
+  // TODO: handle all pointer events including enter press
+  // TODO: check tabindexes and aria attributes
+  // TODO: consider using desposible pattern and dont forget to remove event listeners
   private setupEventListeners() {
     if (!this.shadowRoot) return;
 
-    // toggle?
-    const changeButton = this.shadowRoot.querySelector('.change-button');
-    changeButton?.addEventListener('click', () => this.openDialog());
-    
-    // Remove buttons in main view
-    // TODO: handle all pointer events including enter press
-    // TODO: check tabindexes and aria attributes
+    this.shadowRoot.addEventListener('click', this.handleElementClick);
+    this.shadowRoot.addEventListener('change', this.handleElementChange);
+    this.shadowRoot.addEventListener('input', this.handleElementChange);
+  }
 
-    // use this one! const element = target.getAttribute('data-elementType');
-    this.shadowRoot.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      if (target.classList.contains('remove-button')) {
+  private handleElementClick = (e: Event) => {
+    const target = e.target as HTMLElement;
+    const elementType = target.getAttribute('data-elementType');
+
+    switch (elementType) {
+      case 'change-button':
+        this.openDialog();
+        break;
+        
+      case 'remove-button':
+        const element = target.getAttribute('data-element');
+        if (element) this.removeElement(element);
+        break;
+        
+      case 'save-button':
+        this.saveSelection();
+        break;
+        
+      case 'cancel-button':
+        this.closeDialog();
+        break;
+        
+      case 'dialog-remove-button':
+        const removeElement = target.getAttribute('data-element');
+        if (removeElement) {
+          this.removeFromDialogSelection(removeElement);
+          const checkbox = this.dialog?.querySelector(`[data-element="${removeElement}"]`) as HTMLInputElement;
+          if (checkbox) checkbox.checked = false;
+        }
+        break;
+    }
+  }
+
+  private handleElementChange = (e: Event) => {
+    const target = e.target as HTMLElement;
+    const elementType = target.getAttribute('data-elementType');
+
+    switch (elementType) {
+      case 'checkbox':
         const element = target.getAttribute('data-element');
         if (element) {
-          this.removeElement(element);
-        }
-      }
-    });
-
-    if (this.dialog) {
-      const saveButton = this.dialog.querySelector('.save-button');
-      saveButton?.addEventListener('click', () => this.saveSelection());
-      
-      const cancelButton = this.dialog.querySelector('.cancel-button');
-      cancelButton?.addEventListener('click', () => this.closeDialog());
-      
-      const searchInput = this.dialog.querySelector('.search-input') as HTMLInputElement;
-      searchInput?.addEventListener('input', (e) => {
-        this.searchTerm = (e.target as HTMLInputElement).value;
-        this.onFilterChange();
-        this.updateElementsList();
-      });
-      
-      //TODO: use one change listener and descriminate it by type
-      const numberFilter = this.dialog.querySelector('.number-filter') as HTMLSelectElement;
-      numberFilter?.addEventListener('change', (e) => {
-        this.numberFilter = (e.target as HTMLSelectElement).value as NumberFilter;
-        this.onFilterChange();
-        this.updateElementsList();
-      });
-      
-      // Checkbox changes
-      this.dialog.addEventListener('change', (e) => {
-        const target = e.target as HTMLInputElement;
-        if (target.type === 'checkbox') {
-          const element = target.getAttribute('data-element');
-
-          if (element) {
-            if (target.checked) {
-              this.addToDialogSelection(element);
-            } else {
-              this.removeFromDialogSelection(element);
-            }
-          }
-        }
-      });
-      
-      // TODO: check if we need to uncheck checkboxes in order we check it during its rendering
-      // TODO: consider using desposible pattern and dont forget to remove event listeners
-      // TODO: check rerender sicle machanism (trigger rerender manualy?)
-      // Remove buttons in dialog
-      this.dialog.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
-        if (target.classList.contains('dialog-remove-button')) {
-          const element = target.getAttribute('data-element');
-          if (element) {
+          if ((target as HTMLInputElement).checked) {
+            this.addToDialogSelection(element);
+          } else {
             this.removeFromDialogSelection(element);
-            // Update checkbox
-            const checkbox = this.dialog?.querySelector(`[data-element="${element}"]`) as HTMLInputElement;
-            if (checkbox) checkbox.checked = false;
           }
         }
-      });
+        break;
+        
+      case 'search-input':
+        this.searchTerm = (target as HTMLInputElement).value;
+        this.onFilterChange();
+        this.updateElementsList();
+        break;
+        
+      case 'number-filter':
+        this.numberFilter = (target as HTMLSelectElement).value as NumberFilter;
+        this.onFilterChange();
+        this.updateElementsList();
+        break;
     }
   }
   
@@ -259,12 +251,12 @@ class ElementSelector extends HTMLElement {
     if (!this.dialog) return;
     
     // Initialize dialog selection with current selection
-    this.dialogSelectedElements = [...this.selectedElements];
+    this.dialogSelectedElements = new Set(this.selectedElements);
     
-    // TODO: set default values setting
     // Reset filters
     this.searchTerm = '';
     this.numberFilter = NumberFilter.All;
+    this.filteredElements = this.allElements;
     
     // Update dialog content
     this.updateDialogContent();
@@ -280,7 +272,7 @@ class ElementSelector extends HTMLElement {
   
   private saveSelection() {
     // Update main selection with dialog selection
-    this.selectedElements = [...this.dialogSelectedElements];
+    this.selectedElements = new Set(this.dialogSelectedElements);
     
     // Close dialog
     this.closeDialog();
@@ -291,25 +283,24 @@ class ElementSelector extends HTMLElement {
   
   // TODO: rerender only selected elements
   private removeElement(element: string) {
-    this.selectedElements = this.selectedElements.filter(el => el !== element);
+    this.selectedElements.delete(element);
     this.render();
   }
   
   // TODO: add linter
   // TODO handle extra item selection (change already selected item with new one)???
   private addToDialogSelection(element: string) {
-    const isLimitReached = this.dialogSelectedElements.length >= this.selectedLimit;
-    // TODO: consider using set instead of array
-    const isSelected = this.dialogSelectedElements.includes(element);
+    const isLimitReached = this.dialogSelectedElements.size >= this.selectedLimit;
+    const isSelected = this.dialogSelectedElements.has(element);
 
     if (!isLimitReached && !isSelected) {
-      this.dialogSelectedElements.push(element);
+      this.dialogSelectedElements.add(element);
       this.updateDialogContent();
     }
   }
   
   private removeFromDialogSelection(element: string) {
-    this.dialogSelectedElements = this.dialogSelectedElements.filter(el => el !== element);
+    this.dialogSelectedElements.delete(element);
     this.updateDialogContent();
   }
   
