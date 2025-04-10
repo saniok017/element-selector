@@ -1,10 +1,19 @@
+const enum NumberFilter {
+  All = 'all',
+  GreaterThan10 = 'gt10',
+  GreaterThan50 = 'gt50',
+  GreaterThan100 = 'gt100',
+}
+
 class ElementSelector extends HTMLElement {
   private selectedElements: string[] = [];
   private allElements: string[] = [];
+  private filteredElements: string[] = [];
   private dialog: HTMLDialogElement | null = null;
   private selectedLimit: number = 3;
+  private itemsQuantity: number = 300;
   private searchTerm: string = '';
-  private numberFilter: string = 'all';
+  private numberFilter: NumberFilter = NumberFilter.All;
   
   private dialogSelectedElements: string[] = [];
   
@@ -23,7 +32,10 @@ class ElementSelector extends HTMLElement {
   }
   
   private generateTestData() {
-    this.allElements = Array.from({ length: 300 }, (_, i) => `Element ${i + 1}`); // TODO: generate random data
+    this.allElements = Array.from({ length: this.itemsQuantity }, (_, i) => `Element ${i + 1}`);
+
+    // initial filters are all elements
+    this.filteredElements = this.allElements;
   }
   
   private render() {
@@ -31,9 +43,10 @@ class ElementSelector extends HTMLElement {
       return;
     }
     
+    // TODO: use wrapper to render elements
     const wrapper = document.createElement("div");
 
-    wrapper.innerHTML = `
+    this.shadowRoot.innerHTML = `
       <style>
         ${this.getStyles()}
       </style>
@@ -41,7 +54,7 @@ class ElementSelector extends HTMLElement {
       <div class="container">
         <h2>Selected Elements</h2>
         <div class="selected-items">
-          ${this.renderSelectedItems()}
+          ${this.getSelectedItems()}
         </div>
         <button class="change-button">Change my choice</button>
       </div>
@@ -61,12 +74,12 @@ class ElementSelector extends HTMLElement {
           </div>
           
           <div class="elements-list">
-            ${this.renderElementsList()}
+            ${this.getElementsList()}
           </div>
           
           <h3>Selected Elements</h3>
           <div class="dialog-selected">
-            ${this.renderDialogSelectedItems()}
+            ${this.getDialogSelectedItems()}
           </div>
           
           <div class="dialog-footer">
@@ -76,14 +89,14 @@ class ElementSelector extends HTMLElement {
         </div>
       </dialog>
     `;
-    
-    this.shadowRoot.appendChild(wrapper);
+     
+    // this.shadowRoot.appendChild(wrapper);
 
     // getElementById would be faster but it's not safe to use for custom elements
     this.dialog = this.shadowRoot.querySelector('dialog');
   }
   
-  private renderSelectedItems(): string {
+  private getSelectedItems(): string {
     if (this.selectedElements.length === 0) {
       return '<em>No elements selected</em>';
     }
@@ -96,7 +109,7 @@ class ElementSelector extends HTMLElement {
     `).join('');
   }
   
-  private renderDialogSelectedItems(): string {
+  private getDialogSelectedItems(): string {
     if (this.dialogSelectedElements.length === 0) {
       return '<em>No elements selected</em>';
     }
@@ -108,57 +121,57 @@ class ElementSelector extends HTMLElement {
       </div>
     `).join('');
   }
-  
-  // TODO: change update function name and render function name (getHTMLForElementsList)
-  private renderElementsList(): string {
+
+  private getElementsList(): string {
     const isLimitReached = this.dialogSelectedElements.length >= this.selectedLimit;
-    const filteredElements = this.getFilteredElements();
     
-    if (filteredElements.length === 0) {
+    if (this.filteredElements.length === 0) {
       return '<p>No elements match your search criteria.</p>';
     }
     
-    return filteredElements.map(element => {
+    return this.filteredElements.map(element => {
+      // TODO: consider use set instead of array
       const isSelected = this.dialogSelectedElements.includes(element);
       const isDisabled = isLimitReached && !isSelected;
       
       return `
         <div class="element-item">
-          <input type="checkbox" id="${element}" ${isSelected ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}>
-          <label for="${element}">${element}</label>
+          <label>
+            ${element}
+            <input type="checkbox" data-element="${element}" ${isSelected ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}>
+          </label>
         </div>
       `;
     }).join('');
   }
   
-  private getFilteredElements(): string[] {
-    // TODO: devide allElements into chunks and filter each chunk separately (accordig to filters)
-    return this.allElements.filter(element => {
+  private onFilterChange(): void {
+    const offsetConfig = {
+      all: 0,
+      gt10: 9,
+      gt50: 49,
+      gt100: 99,
+    }
 
-      //TODO: use regex to improve performance
+    let currentOffset = offsetConfig[this.numberFilter];
+    const elementsList: string[] = [];
+    // should be changed to RegExp.escape when it will be supported
+    const escapedSearchTerm = this.searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const currentSearchTerm = new RegExp(escapedSearchTerm, 'i');
+
+    // Elements are sorted by number so we can use currentOffset to skip elements that are not in the range
+    for (let i = currentOffset; i < this.allElements.length; i++) {
+      const element = this.allElements[i];
+
       const matchesSearch = this.searchTerm === '' || 
-        element.toLowerCase().includes(this.searchTerm.toLowerCase());
-      
-      let matchesNumberFilter = true;
-      // TODO: extract regex to improve performance
-      const match = element.match(/Element (\d+)/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        switch (this.numberFilter) {
-          case 'gt10':
-            matchesNumberFilter = num > 10;
-            break;
-          case 'gt50':
-            matchesNumberFilter = num > 50;
-            break;
-          case 'gt100':
-            matchesNumberFilter = num > 100;
-            break;
-        }
+        element.match(currentSearchTerm);
+
+      if (matchesSearch) {
+        elementsList.push(element);
       }
-      
-      return matchesSearch && matchesNumberFilter;
-    });
+    }
+
+    this.filteredElements = elementsList;
   }
   
   // TODO: use observer pattern to improve performance
@@ -173,6 +186,8 @@ class ElementSelector extends HTMLElement {
     // Remove buttons in main view
     // TODO: handle all pointer events including enter press
     // TODO: check tabindexes and aria attributes
+
+    // use this one! const element = target.getAttribute('data-elementType');
     this.shadowRoot.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       if (target.classList.contains('remove-button')) {
@@ -182,29 +197,26 @@ class ElementSelector extends HTMLElement {
         }
       }
     });
-    
-    // Dialog events
+
     if (this.dialog) {
-      // Save button
       const saveButton = this.dialog.querySelector('.save-button');
       saveButton?.addEventListener('click', () => this.saveSelection());
       
-      // Cancel button
       const cancelButton = this.dialog.querySelector('.cancel-button');
       cancelButton?.addEventListener('click', () => this.closeDialog());
       
-      // Search input
       const searchInput = this.dialog.querySelector('.search-input') as HTMLInputElement;
       searchInput?.addEventListener('input', (e) => {
         this.searchTerm = (e.target as HTMLInputElement).value;
+        this.onFilterChange();
         this.updateElementsList();
       });
       
       //TODO: use one change listener and descriminate it by type
-      // Number filter
       const numberFilter = this.dialog.querySelector('.number-filter') as HTMLSelectElement;
       numberFilter?.addEventListener('change', (e) => {
-        this.numberFilter = (e.target as HTMLSelectElement).value;
+        this.numberFilter = (e.target as HTMLSelectElement).value as NumberFilter;
+        this.onFilterChange();
         this.updateElementsList();
       });
       
@@ -212,11 +224,14 @@ class ElementSelector extends HTMLElement {
       this.dialog.addEventListener('change', (e) => {
         const target = e.target as HTMLInputElement;
         if (target.type === 'checkbox') {
-          const element = target.id;
-          if (target.checked) {
-            this.addToDialogSelection(element);
-          } else {
-            this.removeFromDialogSelection(element);
+          const element = target.getAttribute('data-element');
+
+          if (element) {
+            if (target.checked) {
+              this.addToDialogSelection(element);
+            } else {
+              this.removeFromDialogSelection(element);
+            }
           }
         }
       });
@@ -232,7 +247,7 @@ class ElementSelector extends HTMLElement {
           if (element) {
             this.removeFromDialogSelection(element);
             // Update checkbox
-            const checkbox = this.dialog?.querySelector(`#${element}`) as HTMLInputElement;
+            const checkbox = this.dialog?.querySelector(`[data-element="${element}"]`) as HTMLInputElement;
             if (checkbox) checkbox.checked = false;
           }
         }
@@ -249,7 +264,7 @@ class ElementSelector extends HTMLElement {
     // TODO: set default values setting
     // Reset filters
     this.searchTerm = '';
-    this.numberFilter = 'all';
+    this.numberFilter = NumberFilter.All;
     
     // Update dialog content
     this.updateDialogContent();
@@ -270,10 +285,11 @@ class ElementSelector extends HTMLElement {
     // Close dialog
     this.closeDialog();
     
-    // Update main view
+    // TODO: rerender only selected elements
     this.render();
   }
   
+  // TODO: rerender only selected elements
   private removeElement(element: string) {
     this.selectedElements = this.selectedElements.filter(el => el !== element);
     this.render();
@@ -302,19 +318,18 @@ class ElementSelector extends HTMLElement {
     
     const selectedContainer = this.dialog.querySelector('.dialog-selected');
     if (selectedContainer) {
-      selectedContainer.innerHTML = this.renderDialogSelectedItems();
+      selectedContainer.innerHTML = this.getDialogSelectedItems();
     }
     
     this.updateElementsList();
   }
-  
-  // rerender elements list???
+
   private updateElementsList() {
     if (!this.dialog) return;
     
     const elementsListContainer = this.dialog.querySelector('.elements-list');
     if (elementsListContainer) {
-      elementsListContainer.innerHTML = this.renderElementsList();
+      elementsListContainer.innerHTML = this.getElementsList();
     }
   }
 
@@ -525,6 +540,4 @@ class ElementSelector extends HTMLElement {
   }
 }
 
-
-//TODO: add prebuild step to build (remove dist folder)
 customElements.define('element-selector', ElementSelector);
