@@ -18,6 +18,9 @@ class ElementSelector extends HTMLElement {
   private DEBOUNCE_DELAY = 300; // milliseconds
   
   private dialogSelectedElements = new Set<string>();
+  private dialogSelectedRoot: HTMLElement | null = null;
+  private selectedItemsRoot: HTMLElement | null = null;
+  private elementsListRoot: HTMLElement | null = null;
   
   // TODO: add infinite scroll feature (use intersection observer)
   constructor() {
@@ -45,18 +48,16 @@ class ElementSelector extends HTMLElement {
       return;
     }
     
-    // TODO: use wrapper to render elements
     const wrapper = document.createElement("div");
 
-    this.shadowRoot.innerHTML = `
+    wrapper.innerHTML = `
       <style>
         ${this.getStyles()}
       </style>
       
       <div class="container">
         <h2>Selected Elements</h2>
-        <div class="selected-items">
-          ${this.getSelectedItems()}
+        <div data-elementType="selected-items-root" class="selected-items">
         </div>
         <button data-elementType="change-button" class="change-button">Change my choice</button>
       </div>
@@ -75,13 +76,11 @@ class ElementSelector extends HTMLElement {
             </select>
           </div>
           
-          <div class="elements-list">
-            ${this.getElementsList()}
+          <div data-elementType="elements-list-root" class="elements-list">
           </div>
           
           <h3>Selected Elements</h3>
-          <div class="dialog-selected">
-            ${this.getDialogSelectedItems()}
+          <div data-elementType="dialog-selected-root" class="dialog-selected">
           </div>
           
           <div class="dialog-footer">
@@ -92,60 +91,109 @@ class ElementSelector extends HTMLElement {
       </dialog>
     `;
      
-    // this.shadowRoot.appendChild(wrapper);
+    this.shadowRoot.appendChild(wrapper);
 
     // getElementById would be faster but it's not safe to use for custom elements
+    this.dialogSelectedRoot = this.shadowRoot.querySelector('[data-elementType="dialog-selected-root"]') as HTMLElement;
+    this.selectedItemsRoot = this.shadowRoot.querySelector('[data-elementType="selected-items-root"]') as HTMLElement;
+    this.elementsListRoot = this.shadowRoot.querySelector('[data-elementType="elements-list-root"]') as HTMLElement;
     this.dialog = this.shadowRoot.querySelector('dialog');
-  }
-  
-  private getSelectedItems(): string {
-    if (this.selectedElements.size === 0) {
-      return '<em>No elements selected</em>';
-    }
-    
-    return Array.from(this.selectedElements).map(element => `
-      <div class="selected-item">
-        ${element}
-        <button data-elementType="remove-button" class="remove-button" data-element="${element}">✕</button>
-      </div>
-    `).join('');
-  }
-  
-  private getDialogSelectedItems(): string {
-    if (this.dialogSelectedElements.size === 0) {
-      return '<em>No elements selected</em>';
-    }
-    
-    return Array.from(this.dialogSelectedElements).map(element => `
-      <div class="selected-item">
-        ${element}
-        <button data-elementType="dialog-remove-button" class="dialog-remove-button" data-element="${element}">✕</button>
-      </div>
-    `).join('');
+
+    this.renderElements();
   }
 
-  private getElementsList(): string {
-    const isLimitReached = this.dialogSelectedElements.size >= this.selectedLimit;
-    
-    if (this.filteredElements.length === 0) {
-      return '<p>No elements match your search criteria.</p>';
+  private renderElements() {
+    this.renderDialogSelectedItems();
+    this.renderSelectedItems();
+    this.renderElementsList();
+  }
+
+  private renderSelectedItems(): void {
+    const parent = this.selectedItemsRoot;
+
+    if (!parent) return;
+
+    if (this.selectedElements.size === 0) {
+      parent.innerHTML = '<em>No elements selected</em>';
+      return;
     }
-    
-    return this.filteredElements.map(element => {
+
+    parent.innerHTML = '';
+
+    this.selectedElements.forEach(element => {
+      const selectedItem = document.createElement('div');
+      selectedItem.classList.add('selected-item');
+      selectedItem.innerHTML = `
+        ${element}
+        <button data-elementType="remove-button" class="remove-button" data-element="${element}">✕</button>
+      `;
+      parent.appendChild(selectedItem);
+    });
+  }
+
+  private renderElementsList(): void {
+    const parent = this.elementsListRoot;
+
+    if (!parent) return;
+
+    if (this.filteredElements.length === 0) {
+      parent.innerHTML = '<p>No elements match your search criteria.</p>';
+      return;
+    }
+
+    parent.innerHTML = '';
+
+    const isLimitReached = this.dialogSelectedElements.size >= this.selectedLimit;
+
+    const elementItems = this.filteredElements.map(element => {
       const isSelected = this.dialogSelectedElements.has(element);
       const isDisabled = isLimitReached && !isSelected;
-      
-      return `
-        <div class="element-item">
-          <label>
-            ${element}
-            <input type="checkbox" data-elementType="checkbox" data-element="${element}" ${isSelected ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}>
-          </label>
-        </div>
-      `;
-    }).join('');
+
+      const elementItem = document.createElement('div');
+      elementItem.classList.add('element-item');
+
+      const label = document.createElement('label');
+      label.textContent = element;
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.setAttribute('data-elementType', 'checkbox');
+      checkbox.setAttribute('data-element', element);
+      checkbox.checked = isSelected;
+      checkbox.disabled = isDisabled;
+
+      label.prepend(checkbox);
+      elementItem.appendChild(label);
+
+      return elementItem;
+    });
+
+    parent.append(...elementItems);
   }
   
+  private renderDialogSelectedItems(): void {
+    const parent = this.dialogSelectedRoot;
+
+    if (!parent) return;
+
+    if (this.dialogSelectedElements.size === 0) {
+      parent.innerHTML = '<em>No elements selected</em>';
+      return;
+    }
+
+    parent.innerHTML = '';
+
+    this.dialogSelectedElements.forEach(element => {
+      const selectedItem = document.createElement('div');
+      selectedItem.classList.add('selected-item');
+      selectedItem.innerHTML = `
+        ${element}
+        <button data-elementType="dialog-remove-button" class="dialog-remove-button" data-element="${element}">✕</button>
+      `;
+      parent.appendChild(selectedItem);
+    }); 
+  }
+
   private onFilterChange(): void {
     const offsetConfig = {
       all: 0,
@@ -175,7 +223,6 @@ class ElementSelector extends HTMLElement {
 
   // TODO: handle all pointer events including enter press
   // TODO: check tabindexes and aria attributes
-  // TODO: consider using desposible pattern and dont forget to remove event listeners
   private setupEventListeners() {
     if (!this.shadowRoot) return;
 
@@ -236,7 +283,7 @@ class ElementSelector extends HTMLElement {
       case 'number-filter':
         this.numberFilter = (target as HTMLSelectElement).value as NumberFilter;
         this.onFilterChange();
-        this.updateElementsList();
+        this.renderElementsList();
         break;
     }
   }
@@ -254,34 +301,32 @@ class ElementSelector extends HTMLElement {
       this.debounceTimer = window.setTimeout(() => {
         this.searchTerm = (target as HTMLInputElement).value;
         this.onFilterChange();
-        this.updateElementsList();
+        this.renderElementsList();
         this.debounceTimer = null;
       }, this.DEBOUNCE_DELAY);
     }
   }
 
-  // TODO: remove event listeners
   disconnectedCallback() {
     if (this.debounceTimer !== null) {
       window.clearTimeout(this.debounceTimer);
     }
+
+    this.shadowRoot?.removeEventListener('click', this.handleElementClick);
+    this.shadowRoot?.removeEventListener('change', this.handleElementChange);
+    this.shadowRoot?.removeEventListener('input', this.handleInputChange);
   }
 
   private openDialog() {
     if (!this.dialog) return;
     
-    // Initialize dialog selection with current selection
     this.dialogSelectedElements = new Set(this.selectedElements);
-    
-    // Reset filters
-    this.searchTerm = '';
-    this.numberFilter = NumberFilter.All;
     this.filteredElements = this.allElements;
-    
-    // Update dialog content
+
+    this.resetFilters();
+
     this.updateDialogContent();
     
-    // Show dialog
     this.dialog.showModal();
   }
   
@@ -289,26 +334,34 @@ class ElementSelector extends HTMLElement {
     if (!this.dialog) return;
     this.dialog.close();
   }
-  
-  private saveSelection() {
-    // Update main selection with dialog selection
-    this.selectedElements = new Set(this.dialogSelectedElements);
+
+  private resetFilters() {
+    this.searchTerm = '';
+    this.numberFilter = NumberFilter.All;
     
-    // Close dialog
-    this.closeDialog();
+    // Reset UI elements
+    const searchInput = this.shadowRoot?.querySelector('[data-elementType="search-input"]') as HTMLInputElement;
+    const numberFilter = this.shadowRoot?.querySelector('[data-elementType="number-filter"]') as HTMLSelectElement;
     
-    // TODO: rerender only selected elements
-    this.render();
+    if (searchInput) searchInput.value = '';
+    if (numberFilter) numberFilter.value = NumberFilter.All;
   }
   
-  // TODO: rerender only selected elements
+  private saveSelection() {
+    this.selectedElements = new Set(this.dialogSelectedElements);
+
+    this.closeDialog();
+    
+    this.renderSelectedItems();
+  }
+
   private removeElement(element: string) {
     this.selectedElements.delete(element);
-    this.render();
+    
+    this.renderSelectedItems();
   }
   
   // TODO: add linter
-  // TODO handle extra item selection (change already selected item with new one)???
   private addToDialogSelection(element: string) {
     const isLimitReached = this.dialogSelectedElements.size >= this.selectedLimit;
     const isSelected = this.dialogSelectedElements.has(element);
@@ -326,22 +379,9 @@ class ElementSelector extends HTMLElement {
   
   private updateDialogContent() {
     if (!this.dialog) return;
-    
-    const selectedContainer = this.dialog.querySelector('.dialog-selected');
-    if (selectedContainer) {
-      selectedContainer.innerHTML = this.getDialogSelectedItems();
-    }
-    
-    this.updateElementsList();
-  }
 
-  private updateElementsList() {
-    if (!this.dialog) return;
-    
-    const elementsListContainer = this.dialog.querySelector('.elements-list');
-    if (elementsListContainer) {
-      elementsListContainer.innerHTML = this.getElementsList();
-    }
+    this.renderDialogSelectedItems();
+    this.renderElementsList();
   }
 
   private getStyles(): string {
