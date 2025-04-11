@@ -16,18 +16,18 @@ class ElementSelector extends HTMLElement {
   private numberFilter: NumberFilter = NumberFilter.All;
   private debounceTimer: number | null = null;
   private DEBOUNCE_DELAY = 300; // milliseconds
-  
+
   private dialogSelectedElements = new Set<string>();
   private dialogSelectedRoot: HTMLElement | null = null;
   private selectedItemsRoot: HTMLElement | null = null;
   private elementsListRoot: HTMLElement | null = null;
-  
+
   // TODO: add infinite scroll feature (use intersection observer)
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
   }
-  
+
   connectedCallback() {
     this.generateTestData();
 
@@ -35,40 +35,46 @@ class ElementSelector extends HTMLElement {
 
     this.setupEventListeners();
   }
-  
+
   private generateTestData() {
     this.allElements = Array.from({ length: this.itemsQuantity }, (_, i) => `Element ${i + 1}`);
 
     // initial filters are all elements
     this.filteredElements = this.allElements;
   }
-  
-  private render() {
-    if (!this.shadowRoot) {
-      return;
-    }
-    
-    const wrapper = document.createElement("div");
 
+  private render() {
+    if (!this.shadowRoot) return;
+
+    const wrapper = document.createElement('div');
     wrapper.innerHTML = `
       <style>
         ${this.getStyles()}
       </style>
-      
       <div class="container">
         <h2>Selected Elements</h2>
-        <div data-elementType="selected-items-root" class="selected-items">
+        <div data-elementType="selected-items-root" class="selected-items" role="list" aria-label="Selected elements list">
         </div>
-        <button data-elementType="change-button" class="change-button">Change my choice</button>
+        <button data-elementType="change-button" class="change-button" aria-label="Open element selection dialog">Change my choice</button>
       </div>
       
-      <dialog>
+      <dialog aria-label="Element selection dialog">
         <div class="dialog-container">
           <h2 class="dialog-header">Select Elements</h2>
           
           <div class="search-filter">
-            <input type="text" data-elementType="search-input" placeholder="Search elements..." class="search-input">
-            <select data-elementType="number-filter" class="number-filter">
+            <input 
+              type="text" 
+              data-elementType="search-input" 
+              placeholder="Search elements..." 
+              class="search-input"
+              aria-label="Search elements"
+            >
+            <select 
+              data-elementType="number-filter" 
+              class="number-filter"
+              aria-label="Filter elements by number"
+            >
               <option value="all">All elements</option>
               <option value="gt10">Number > 10</option>
               <option value="gt50">Number > 50</option>
@@ -76,27 +82,26 @@ class ElementSelector extends HTMLElement {
             </select>
           </div>
           
-          <div data-elementType="elements-list-root" class="elements-list">
+          <div data-elementType="elements-list-root" class="elements-list" role="listbox" aria-label="Available elements">
           </div>
           
           <h3>Selected Elements</h3>
-          <div data-elementType="dialog-selected-root" class="dialog-selected">
+          <div data-elementType="dialog-selected-root" class="dialog-selected" role="list" aria-label="Currently selected elements">
           </div>
           
           <div class="dialog-footer">
-            <button data-elementType="cancel-button" class="cancel-button">Cancel</button>
-            <button data-elementType="save-button" class="save-button">Save</button>
+            <button data-elementType="cancel-button" class="cancel-button" aria-label="Cancel selection">Cancel</button>
+            <button data-elementType="save-button" class="save-button" aria-label="Save selection">Save</button>
           </div>
         </div>
       </dialog>
     `;
-     
+
     this.shadowRoot.appendChild(wrapper);
 
-    // getElementById would be faster but it's not safe to use for custom elements
-    this.dialogSelectedRoot = this.shadowRoot.querySelector('[data-elementType="dialog-selected-root"]') as HTMLElement;
-    this.selectedItemsRoot = this.shadowRoot.querySelector('[data-elementType="selected-items-root"]') as HTMLElement;
-    this.elementsListRoot = this.shadowRoot.querySelector('[data-elementType="elements-list-root"]') as HTMLElement;
+    this.dialogSelectedRoot = this.shadowRoot.querySelector('[data-elementType="dialog-selected-root"]');
+    this.selectedItemsRoot = this.shadowRoot.querySelector('[data-elementType="selected-items-root"]');
+    this.elementsListRoot = this.shadowRoot.querySelector('[data-elementType="elements-list-root"]');
     this.dialog = this.shadowRoot.querySelector('dialog');
 
     this.renderElements();
@@ -123,9 +128,15 @@ class ElementSelector extends HTMLElement {
     this.selectedElements.forEach(element => {
       const selectedItem = document.createElement('div');
       selectedItem.classList.add('selected-item');
+      selectedItem.setAttribute('role', 'listitem');
       selectedItem.innerHTML = `
         ${element}
-        <button data-elementType="remove-button" class="remove-button" data-element="${element}">✕</button>
+        <button 
+          data-elementType="remove-button" 
+          class="remove-button" 
+          data-element="${element}"
+          aria-label="Remove ${element}"
+        >✕</button>
       `;
       parent.appendChild(selectedItem);
     });
@@ -151,6 +162,8 @@ class ElementSelector extends HTMLElement {
 
       const elementItem = document.createElement('div');
       elementItem.classList.add('element-item');
+      elementItem.setAttribute('role', 'option');
+      elementItem.setAttribute('aria-selected', isSelected.toString());
 
       const label = document.createElement('label');
       label.textContent = element;
@@ -161,6 +174,7 @@ class ElementSelector extends HTMLElement {
       checkbox.setAttribute('data-element', element);
       checkbox.checked = isSelected;
       checkbox.disabled = isDisabled;
+      checkbox.setAttribute('aria-label', `Select ${element}`);
 
       label.prepend(checkbox);
       elementItem.appendChild(label);
@@ -170,7 +184,7 @@ class ElementSelector extends HTMLElement {
 
     parent.append(...elementItems);
   }
-  
+
   private renderDialogSelectedItems(): void {
     const parent = this.dialogSelectedRoot;
 
@@ -186,12 +200,18 @@ class ElementSelector extends HTMLElement {
     this.dialogSelectedElements.forEach(element => {
       const selectedItem = document.createElement('div');
       selectedItem.classList.add('selected-item');
+      selectedItem.setAttribute('role', 'listitem');
       selectedItem.innerHTML = `
         ${element}
-        <button data-elementType="dialog-remove-button" class="dialog-remove-button" data-element="${element}">✕</button>
+        <button 
+          data-elementType="dialog-remove-button" 
+          class="dialog-remove-button" 
+          data-element="${element}"
+          aria-label="Remove ${element} from selection"
+        >✕</button>
       `;
       parent.appendChild(selectedItem);
-    }); 
+    });
   }
 
   private onFilterChange(): void {
@@ -210,7 +230,7 @@ class ElementSelector extends HTMLElement {
     for (let i = currentOffset; i < this.allElements.length; i++) {
       const element = this.allElements[i];
 
-      const matchesSearch = this.searchTerm === '' || 
+      const matchesSearch = this.searchTerm === '' ||
         element.toLowerCase().includes(currentSearchTerm);
 
       if (matchesSearch) {
@@ -221,8 +241,6 @@ class ElementSelector extends HTMLElement {
     this.filteredElements = elementsList;
   }
 
-  // TODO: handle all pointer events including enter press
-  // TODO: check tabindexes and aria attributes
   private setupEventListeners() {
     if (!this.shadowRoot) return;
 
@@ -239,20 +257,20 @@ class ElementSelector extends HTMLElement {
       case 'change-button':
         this.openDialog();
         break;
-        
+
       case 'remove-button':
         const element = target.getAttribute('data-element');
         if (element) this.removeElement(element);
         break;
-        
+
       case 'save-button':
         this.saveSelection();
         break;
-        
+
       case 'cancel-button':
         this.closeDialog();
         break;
-        
+
       case 'dialog-remove-button':
         const removeElement = target.getAttribute('data-element');
         if (removeElement) {
@@ -279,7 +297,7 @@ class ElementSelector extends HTMLElement {
           }
         }
         break;
-        
+
       case 'number-filter':
         this.numberFilter = (target as HTMLSelectElement).value as NumberFilter;
         this.onFilterChange();
@@ -319,17 +337,17 @@ class ElementSelector extends HTMLElement {
 
   private openDialog() {
     if (!this.dialog) return;
-    
+
     this.dialogSelectedElements = new Set(this.selectedElements);
     this.filteredElements = this.allElements;
 
     this.resetFilters();
 
     this.updateDialogContent();
-    
+
     this.dialog.showModal();
   }
-  
+
   private closeDialog() {
     if (!this.dialog) return;
     this.dialog.close();
@@ -338,30 +356,28 @@ class ElementSelector extends HTMLElement {
   private resetFilters() {
     this.searchTerm = '';
     this.numberFilter = NumberFilter.All;
-    
-    // Reset UI elements
+
     const searchInput = this.shadowRoot?.querySelector('[data-elementType="search-input"]') as HTMLInputElement;
     const numberFilter = this.shadowRoot?.querySelector('[data-elementType="number-filter"]') as HTMLSelectElement;
-    
+
     if (searchInput) searchInput.value = '';
     if (numberFilter) numberFilter.value = NumberFilter.All;
   }
-  
+
   private saveSelection() {
     this.selectedElements = new Set(this.dialogSelectedElements);
 
     this.closeDialog();
-    
+
     this.renderSelectedItems();
   }
 
   private removeElement(element: string) {
     this.selectedElements.delete(element);
-    
+
     this.renderSelectedItems();
   }
-  
-  // TODO: add linter
+
   private addToDialogSelection(element: string) {
     const isLimitReached = this.dialogSelectedElements.size >= this.selectedLimit;
     const isSelected = this.dialogSelectedElements.has(element);
@@ -371,12 +387,12 @@ class ElementSelector extends HTMLElement {
       this.updateDialogContent();
     }
   }
-  
+
   private removeFromDialogSelection(element: string) {
     this.dialogSelectedElements.delete(element);
     this.updateDialogContent();
   }
-  
+
   private updateDialogContent() {
     if (!this.dialog) return;
 
