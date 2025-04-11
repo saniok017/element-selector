@@ -14,6 +14,8 @@ class ElementSelector extends HTMLElement {
   private itemsQuantity: number = 300;
   private searchTerm: string = '';
   private numberFilter: NumberFilter = NumberFilter.All;
+  private debounceTimer: number | null = null;
+  private DEBOUNCE_DELAY = 300; // milliseconds
   
   private dialogSelectedElements = new Set<string>();
   
@@ -154,16 +156,14 @@ class ElementSelector extends HTMLElement {
 
     let currentOffset = offsetConfig[this.numberFilter];
     const elementsList: string[] = [];
-    // should be changed to RegExp.escape when it will be supported
-    const escapedSearchTerm = this.searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const currentSearchTerm = new RegExp(escapedSearchTerm, 'i');
+    const currentSearchTerm = this.searchTerm.toLowerCase();
 
     // Elements are sorted by number so we can use currentOffset to skip elements that are not in the range
     for (let i = currentOffset; i < this.allElements.length; i++) {
       const element = this.allElements[i];
 
       const matchesSearch = this.searchTerm === '' || 
-        element.match(currentSearchTerm);
+        element.toLowerCase().includes(currentSearchTerm);
 
       if (matchesSearch) {
         elementsList.push(element);
@@ -181,7 +181,7 @@ class ElementSelector extends HTMLElement {
 
     this.shadowRoot.addEventListener('click', this.handleElementClick);
     this.shadowRoot.addEventListener('change', this.handleElementChange);
-    this.shadowRoot.addEventListener('input', this.handleElementChange);
+    this.shadowRoot.addEventListener('input', this.handleInputChange);
   }
 
   private handleElementClick = (e: Event) => {
@@ -233,12 +233,6 @@ class ElementSelector extends HTMLElement {
         }
         break;
         
-      case 'search-input':
-        this.searchTerm = (target as HTMLInputElement).value;
-        this.onFilterChange();
-        this.updateElementsList();
-        break;
-        
       case 'number-filter':
         this.numberFilter = (target as HTMLSelectElement).value as NumberFilter;
         this.onFilterChange();
@@ -246,7 +240,33 @@ class ElementSelector extends HTMLElement {
         break;
     }
   }
-  
+
+  private handleInputChange = (e: Event) => {
+    const target = e.target as HTMLElement;
+    const elementType = target.getAttribute('data-elementType');
+
+    if (elementType === 'search-input') {
+
+      if (this.debounceTimer !== null) {
+        window.clearTimeout(this.debounceTimer);
+      }
+
+      this.debounceTimer = window.setTimeout(() => {
+        this.searchTerm = (target as HTMLInputElement).value;
+        this.onFilterChange();
+        this.updateElementsList();
+        this.debounceTimer = null;
+      }, this.DEBOUNCE_DELAY);
+    }
+  }
+
+  // TODO: remove event listeners
+  disconnectedCallback() {
+    if (this.debounceTimer !== null) {
+      window.clearTimeout(this.debounceTimer);
+    }
+  }
+
   private openDialog() {
     if (!this.dialog) return;
     
