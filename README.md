@@ -13,4 +13,4 @@ A high-performance custom element selector implemented with Web Components and T
    ```
    npm run build
    ```
-4. Open index file
+4. Open index.html file
