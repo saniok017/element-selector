@@ -117,7 +117,6 @@ class ElementSelector extends HTMLElement {
 
   private renderSelectedItems(): void {
     const parent = this.selectedItemsRoot;
-
     if (!parent) return;
 
     if (this.selectedElements.size === 0) {
@@ -125,8 +124,8 @@ class ElementSelector extends HTMLElement {
       return;
     }
 
-    parent.innerHTML = '';
-
+    const fragment = document.createDocumentFragment();
+    
     this.selectedElements.forEach(element => {
       const selectedItem = document.createElement('div');
       selectedItem.classList.add('selected-item');
@@ -140,10 +139,14 @@ class ElementSelector extends HTMLElement {
           aria-label="Remove ${element}"
         >✕</button>
       `;
-      parent.appendChild(selectedItem);
+      fragment.appendChild(selectedItem);
     });
+
+    parent.innerHTML = '';
+    parent.appendChild(fragment);
   }
 
+  // improvement: reuse inserted DOM elements, add loading indicators for both directions
   private renderElementsList(append = false): void {
     const parent = this.elementsListRoot;
 
@@ -211,7 +214,6 @@ class ElementSelector extends HTMLElement {
 
   private renderDialogSelectedItems(): void {
     const parent = this.dialogSelectedRoot;
-
     if (!parent) return;
 
     if (this.dialogSelectedElements.size === 0) {
@@ -219,8 +221,8 @@ class ElementSelector extends HTMLElement {
       return;
     }
 
-    parent.innerHTML = '';
-
+    const fragment = document.createDocumentFragment();
+    
     this.dialogSelectedElements.forEach(element => {
       const selectedItem = document.createElement('div');
       selectedItem.classList.add('selected-item');
@@ -234,8 +236,11 @@ class ElementSelector extends HTMLElement {
           aria-label="Remove ${element} from selection"
         >✕</button>
       `;
-      parent.appendChild(selectedItem);
+      fragment.appendChild(selectedItem);
     });
+
+    parent.innerHTML = '';
+    parent.appendChild(fragment);
   }
 
   private onFilterChange(): void {
