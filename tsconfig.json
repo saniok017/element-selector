@@ -4,20 +4,24 @@
       "es2024",
       "dom"
     ],
-    "module": "ESNext",
     "target": "es2024",
+    "module": "commonjs",
 
     "noImplicitAny": true,
     "removeComments": true,
     "strict": true,
     "outDir": "./dist",
-    "esModuleInterop": true,
+    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
   "include": [
     "*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.setup.ts",
+    "**/*.config.js",
+    "dist"
   ]
-} 
+}

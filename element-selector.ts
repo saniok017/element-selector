@@ -16,13 +16,16 @@ class ElementSelector extends HTMLElement {
   private numberFilter: NumberFilter = NumberFilter.All;
   private debounceTimer: number | null = null;
   private DEBOUNCE_DELAY = 300; // milliseconds
+  private ITEMS_PER_PAGE = 20;
+  private currentPage = 1;
+  private observer: IntersectionObserver | null = null;
+  private loading = false;
 
   private dialogSelectedElements = new Set<string>();
   private dialogSelectedRoot: HTMLElement | null = null;
   private selectedItemsRoot: HTMLElement | null = null;
   private elementsListRoot: HTMLElement | null = null;
 
-  // TODO: add infinite scroll feature (use intersection observer)
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
@@ -30,10 +33,9 @@ class ElementSelector extends HTMLElement {
 
   connectedCallback() {
     this.generateTestData();
-
     this.render();
-
     this.setupEventListeners();
+    this.setupIntersectionObserver();
   }
 
   private generateTestData() {
@@ -142,21 +144,29 @@ class ElementSelector extends HTMLElement {
     });
   }
 
-  private renderElementsList(): void {
+  private renderElementsList(append = false): void {
     const parent = this.elementsListRoot;
 
     if (!parent) return;
+
+    if (!append) {
+      parent.innerHTML = '';
+      this.currentPage = 1;
+    }
 
     if (this.filteredElements.length === 0) {
       parent.innerHTML = '<p>No elements match your search criteria.</p>';
       return;
     }
 
-    parent.innerHTML = '';
-
     const isLimitReached = this.dialogSelectedElements.size >= this.selectedLimit;
+    const startIndex = (this.currentPage - 1) * this.ITEMS_PER_PAGE;
+    const endIndex = Math.min(startIndex + this.ITEMS_PER_PAGE, this.filteredElements.length);
 
-    const elementItems = this.filteredElements.map(element => {
+    const fragment = document.createDocumentFragment();
+
+    for (let i = startIndex; i < endIndex; i++) {
+      const element = this.filteredElements[i];
       const isSelected = this.dialogSelectedElements.has(element);
       const isDisabled = isLimitReached && !isSelected;
 
@@ -178,11 +188,25 @@ class ElementSelector extends HTMLElement {
 
       label.prepend(checkbox);
       elementItem.appendChild(label);
+      fragment.appendChild(elementItem);
+    }
 
-      return elementItem;
-    });
+    const existingIndicator = parent.querySelector('.loading-indicator');
+    if (existingIndicator) {
+      this.observer?.unobserve(existingIndicator);
+      existingIndicator.remove();
+    }
 
-    parent.append(...elementItems);
+    if (endIndex < this.filteredElements.length) {
+      const loadingIndicator = document.createElement('div');
+      loadingIndicator.classList.add('loading-indicator');
+      loadingIndicator.textContent = 'Loading more...';
+      fragment.appendChild(loadingIndicator);
+      this.observer?.observe(loadingIndicator);
+    }
+
+    // Append all elements at once
+    parent.appendChild(fragment);
   }
 
   private renderDialogSelectedItems(): void {
@@ -217,9 +241,9 @@ class ElementSelector extends HTMLElement {
   private onFilterChange(): void {
     const offsetConfig = {
       all: 0,
-      gt10: 9,
-      gt50: 49,
-      gt100: 99,
+      gt10: 10,
+      gt50: 50,
+      gt100: 100,
     }
 
     let currentOffset = offsetConfig[this.numberFilter];
@@ -239,6 +263,7 @@ class ElementSelector extends HTMLElement {
     }
 
     this.filteredElements = elementsList;
+    this.renderElementsList();
   }
 
   private setupEventListeners() {
@@ -301,7 +326,6 @@ class ElementSelector extends HTMLElement {
       case 'number-filter':
         this.numberFilter = (target as HTMLSelectElement).value as NumberFilter;
         this.onFilterChange();
-        this.renderElementsList();
         break;
     }
   }
@@ -319,7 +343,6 @@ class ElementSelector extends HTMLElement {
       this.debounceTimer = window.setTimeout(() => {
         this.searchTerm = (target as HTMLInputElement).value;
         this.onFilterChange();
-        this.renderElementsList();
         this.debounceTimer = null;
       }, this.DEBOUNCE_DELAY);
     }
@@ -329,7 +352,7 @@ class ElementSelector extends HTMLElement {
     if (this.debounceTimer !== null) {
       window.clearTimeout(this.debounceTimer);
     }
-
+    this.observer?.disconnect();
     this.shadowRoot?.removeEventListener('click', this.handleElementClick);
     this.shadowRoot?.removeEventListener('change', this.handleElementChange);
     this.shadowRoot?.removeEventListener('input', this.handleInputChange);
@@ -350,6 +373,13 @@ class ElementSelector extends HTMLElement {
 
   private closeDialog() {
     if (!this.dialog) return;
+
+    this.filteredElements = [];
+
+    this.resetFilters();
+
+    this.updateDialogContent();
+
     this.dialog.close();
   }
 
@@ -398,6 +428,31 @@ class ElementSelector extends HTMLElement {
 
     this.renderDialogSelectedItems();
     this.renderElementsList();
+  }
+
+  private setupIntersectionObserver() {
+    const options = {
+      root: this.elementsListRoot,
+      rootMargin: '20px',
+      threshold: 0.1
+    };
+
+    this.observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && !this.loading) {
+          this.loadMoreElements();
+        }
+      });
+    }, options);
+  }
+
+  private loadMoreElements() {
+    if (this.loading) return;
+
+    this.loading = true;
+    this.currentPage++;
+    this.renderElementsList(true);
+    this.loading = false;
   }
 
   private getStyles(): string {
@@ -603,8 +658,17 @@ class ElementSelector extends HTMLElement {
     .elements-list::-webkit-scrollbar-thumb:hover {
       background: #a1a1a1;
     }
+    
+    .loading-indicator {
+      text-align: center;
+      padding: 10px;
+      color: #666;
+      font-style: italic;
+    }
     `;
   }
 }
 
 customElements.define('element-selector', ElementSelector);
+
+module.exports = ElementSelector;
