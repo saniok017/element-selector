@@ -1,4 +1,4 @@
-import ElementSelector from "./dist/element-selector";
+import { ElementSelector } from "./element-selector";
 
 interface CustomMatchers<R = unknown> {
   toBeInTheDocument(): R;
@@ -39,13 +39,7 @@ describe('ElementSelector', () => {
     element = document.createElement('element-selector') as ElementSelector;
     document.body.appendChild(element);
 
-    // TODO: check if its needed
-    return new Promise<void>(resolve => {
-      requestAnimationFrame(() => {
-        shadowRoot = element.shadowRoot!;
-        resolve();
-      });
-    });
+    shadowRoot = element.shadowRoot!;
   });
 
   afterEach(() => {
@@ -95,7 +89,7 @@ describe('ElementSelector', () => {
 
     it('should respect selection limit', () => {
       const elements = ['Element 1', 'Element 2', 'Element 3', 'Element 4'];
-      elements.forEach((el: string) => element['addToDialogSelection'](el));
+      elements.forEach((el) => element['addToDialogSelection'](el));
       expect(element['dialogSelectedElements'].size).toBe(3);
     });
   });

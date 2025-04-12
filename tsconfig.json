@@ -19,9 +19,6 @@
   ],
   "exclude": [
     "node_modules",
-    "**/*.test.ts",
-    "**/*.setup.ts",
-    "**/*.config.js",
     "dist"
   ]
 }
